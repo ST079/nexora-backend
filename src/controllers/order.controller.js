@@ -1,4 +1,3 @@
-import { error } from "console";
 import orderService from "../services/order.service.js";
 
 const getAllOrders = async (req, res, next) => {
@@ -22,7 +21,7 @@ const getOrdersByUser = async (req, res, next) => {
 
 const getOrderById = async (req, res, next) => {
   try {
-    const order = await orderService.getOrderById(req.params.id);
+    const order = await orderService.getOrderById(req.params.id, req.user);
     res.json(order);
   } catch (error) {
     next(error);
@@ -41,7 +40,7 @@ const createOrder = async (req, res, next) => {
 const cancelOrder = async (req, res, next) => {
   try {
     const order = await orderService.cancelOrder(req.params.id, req.user);
-    res.status(201).json(order);
+    res.status(200).json(order);
   } catch (error) {
     next(error);
   }
@@ -70,17 +69,22 @@ const updateOrderStatus = async (req, res, next) => {
 
 const orderPaymentViaKhalti = async (req, res, next) => {
   try {
-    const order = await orderService.orderPaymentViaKhalti(req.params.id);
+    const order = await orderService.orderPaymentViaKhalti(
+      req.params.id,
+      req.user,
+    );
     res.status(200).json(order);
   } catch (error) {
     next(error);
   }
 };
 
-
 const orderPaymentViaStripe = async (req, res, next) => {
   try {
-    const order = await orderService.orderPaymentViaStripe(req.params.id);
+    const order = await orderService.orderPaymentViaStripe(
+      req.params.id,
+      req.user,
+    );
     res.status(200).json(order);
   } catch (error) {
     next(error);
@@ -89,20 +93,23 @@ const orderPaymentViaStripe = async (req, res, next) => {
 
 const orderPaymentViaCash = async (req, res, next) => {
   try {
-    const order = await orderService.orderPaymentViaCash(req.params.id);
+    const order = await orderService.orderPaymentViaCash(
+      req.params.id,
+      req.user,
+    );
     res.status(200).json(order);
   } catch (error) {
     next(error);
   }
 };
 
+// The provider is asked directly, so only the Khalti pidx is read from the body.
 const confirmOrderPayment = async (req, res, next) => {
-  if (!req.body?.status)
-    return res.status(400).json({ message: "Payment Status is required." });
   try {
     const order = await orderService.confirmOrderPayment(
       req.params.id,
-      req.body.status,
+      { pidx: req.body?.pidx },
+      req.user,
     );
     res.status(200).json(order);
   } catch (error) {
@@ -112,7 +119,10 @@ const confirmOrderPayment = async (req, res, next) => {
 
 const getOrdersByMerchant = async (req, res, next) => {
   try {
-    const orders = await orderService.getOrdersByMerchant(req.user._id);
+    const orders = await orderService.getOrdersByMerchant(
+      req.user._id,
+      req.query,
+    );
     res.json(orders);
   } catch (error) {
     next(error);
@@ -121,8 +131,17 @@ const getOrdersByMerchant = async (req, res, next) => {
 
 const getTotalCount = async (req, res, next) => {
   try {
-    const data = await orderService.getTotalCount();
+    const data = await orderService.getTotalCount(req.query, req.user);
     res.json({ totalCount: data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getStats = async (req, res, next) => {
+  try {
+    const data = await orderService.getStats(req.user);
+    res.json(data);
   } catch (error) {
     next(error);
   }
@@ -142,4 +161,5 @@ export default {
   confirmOrderPayment,
   getOrdersByMerchant,
   getTotalCount,
+  getStats,
 };

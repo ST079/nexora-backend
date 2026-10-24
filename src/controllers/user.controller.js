@@ -34,12 +34,11 @@ const getLoggedInUser = async (req, res, next) => {
 
 const createUser = async (req, res, next) => {
   try {
-    const payload = {
-      data: req.body,
-    };
-    const newUser = await userService.createUser(payload);
+    const newUser = await userService.createUser(req.body);
 
-    res.json({ message: "User Created Successfully.", userDetails: newUser });
+    res
+      .status(201)
+      .json({ message: "User Created Successfully.", userDetails: newUser });
   } catch (error) {
     next(error);
   }
@@ -69,10 +68,19 @@ const updateUserProfileImage = async (req, res, next) => {
   }
 };
 
+const changePassword = async (req, res, next) => {
+  try {
+    const data = await userService.changePassword(req.user._id, req.body);
+    res.status(200).json(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const deleteUser = async (req, res, next) => {
   try {
     const id = req.params.id;
-    const deletedUser = await userService.deleteUser(id);
+    const deletedUser = await userService.deleteUser(id, req.user);
     res.status(200).json(deletedUser);
   } catch (error) {
     next(error);
@@ -84,7 +92,7 @@ const updateUserRoles = async (req, res, next) => {
     const id = req.params.id;
     const roles = req.body.roles;
 
-    const updatedUser = await userService.updateUserRoles(id, roles);
+    const updatedUser = await userService.updateUserRoles(id, roles, req.user);
     res.status(200).json(updatedUser);
   } catch (error) {
     next(error);
@@ -93,8 +101,17 @@ const updateUserRoles = async (req, res, next) => {
 
 const getTotalCount = async (req, res, next) => {
   try {
-    const data = await userService.getTotalCount();
+    const data = await userService.getTotalCount(req.query);
     res.json({ totalCount: data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getStats = async (req, res, next) => {
+  try {
+    const data = await userService.getStats();
+    res.json(data);
   } catch (error) {
     next(error);
   }
@@ -106,8 +123,10 @@ export default {
   getUserById,
   updateUser,
   updateUserProfileImage,
+  changePassword,
   deleteUser,
   getLoggedInUser,
   updateUserRoles,
   getTotalCount,
+  getStats,
 };

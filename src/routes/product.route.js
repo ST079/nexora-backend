@@ -4,13 +4,14 @@ import auth from "../middlewares/auth.js";
 import checkRole from "../middlewares/checkRole.js";
 import { ROLE_ADMIN, ROLE_MERCHANT } from "../constants/roles.js";
 import { validate } from "../middlewares/validate.js";
-import { productSchema } from "../libs/schemas/productSchema.js";
-import multer from "multer";
+import {
+  productSchema,
+  productUpdateSchema,
+} from "../libs/schemas/productSchema.js";
+import upload from "../middlewares/upload.js";
 
 const router = express.Router();
 
-// const upload = multer({ dest: "uploads/" });
-const upload = multer({ storage: multer.memoryStorage() }); //temp storage in ram to get buffer.
 
 /**
  * GET /api/v1/products/
@@ -59,6 +60,7 @@ router.put(
   auth,
   checkRole(ROLE_MERCHANT, ROLE_ADMIN),
   upload.array("images"),
+  validate(productUpdateSchema),
   productControllers.updateProduct,
 );
 

@@ -12,11 +12,11 @@ const resetPasswordSchema = new mongoose.Schema({
   },
   createdAt: {
     type: Date,
-    default: Date.now(),
+    default: Date.now,
   },
   expireAt: {
     type: Date,
-    default: Date.now() + 3600000, // 1hour
+    default: () => Date.now() + 3600000, // 1hour from creation, not boot
   },
   isUsed: {
     type: Boolean,

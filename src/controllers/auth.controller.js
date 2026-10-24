@@ -2,61 +2,58 @@ import authService from "../services/auth.service.js";
 
 import { generateJwt } from "../utils/token.js";
 
-const login = async (req, res) => {
+const TOKEN_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: true,
+  sameSite: "none",
+  maxAge: 86400 * 1000,
+};
+
+const login = async (req, res, next) => {
   try {
     const payload = req.body;
     const user = await authService.login(payload);
     const token = generateJwt(user);
 
     //storing token in cookie key, value
-    res.cookie("nexora_token", token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 86400 * 1000,
-    });
-    if (user) {
-      res.json({ message: "Login successful", token: token, user: user });
-    }
+    res.cookie("nexora_token", token, TOKEN_COOKIE_OPTIONS);
+    res.json({ message: "Login successful", token: token, user: user });
   } catch (error) {
-    res.status(error.status || 400).send({ message: error?.message });
+    next(error);
   }
 };
 
-const register = async (req, res) => {
+const register = async (req, res, next) => {
   try {
     const payload = req.body;
     const newUser = await authService.register(payload);
     const token = generateJwt(newUser);
 
-    res.cookie("nexora_token", token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 86400 * 1000,
-    });
+    res.cookie("nexora_token", token, TOKEN_COOKIE_OPTIONS);
 
-    res.json({
+    // `user` matches the login response; `registeredUser` kept for old clients.
+    res.status(201).json({
       message: "Registration successful",
+      user: newUser,
       registeredUser: newUser,
       token: token,
     });
   } catch (error) {
-    res.status(error.status || 400).send({ message: error?.message });
+    next(error);
   }
 };
 
-const forgotPassword = async (req, res) => {
+const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
     const data = await authService.forgotPassword(email);
     res.json(data);
   } catch (error) {
-    res.status(error.status || 400).send({ message: error?.message });
+    next(error);
   }
 };
 
-const resetPassword = async (req, res) => {
+const resetPassword = async (req, res, next) => {
   const query = req.query;
 
   if (!query.token || !query.userId) {
@@ -74,7 +71,7 @@ const resetPassword = async (req, res) => {
     );
     res.json(data);
   } catch (error) {
-    res.status(error.status || 400).send({ message: error?.message });
+    next(error);
   }
 };
 

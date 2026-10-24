@@ -1,15 +1,17 @@
 import express from "express";
 import userController from "../controllers/user.controller.js";
 import { validate } from "../middlewares/validate.js";
-import { updateRolesSchema, userSchema } from "../libs/schemas/user.schema.js";
+import {
+  changePasswordSchema,
+  updateRolesSchema,
+} from "../libs/schemas/user.schema.js";
+import { createUserSchema } from "../libs/schemas/authSchema.js";
 import checkRole from "../middlewares/checkRole.js";
 import { ROLE_ADMIN } from "../constants/roles.js";
-import { check } from "zod";
-import multer from "multer";
+import upload from "../middlewares/upload.js";
 
 const router = express.Router();
 
-const upload = multer({ storage: multer.memoryStorage() });
 
 /**
  * GET /api/v1/users/
@@ -26,7 +28,12 @@ router.get("/me", userController.getLoggedInUser);
 /**
  * GET /api/v1/users/count
  */
-router.get("/count", userController.getTotalCount);
+router.get("/count", checkRole(ROLE_ADMIN), userController.getTotalCount);
+
+/**
+ * GET /api/v1/users/stats
+ */
+router.get("/stats", checkRole(ROLE_ADMIN), userController.getStats);
 
 /**
  * GET /api/v1/users/:id
@@ -40,13 +47,21 @@ router.get("/:id", checkRole(ROLE_ADMIN), userController.getUserById);
 router.post(
   "/",
   checkRole(ROLE_ADMIN),
-  upload.single("image"),
-  validate(userSchema),
+  validate(createUserSchema),
   userController.createUser,
 );
 
 /**
- * Put /api/v1/users/update-profile
+ * Patch /api/v1/users/change-password
+ */
+router.patch(
+  "/change-password",
+  validate(changePasswordSchema),
+  userController.changePassword,
+);
+
+/**
+ * Put /api/v1/users/:id/update-profile
  */
 router.put(
   "/:id/update-profile",

@@ -2,7 +2,7 @@ import { v2 as cloudinary } from "cloudinary";
 
 const CLOUDINARY_FOLDER = "Nexora";
 
-const uploadFiles = async (files) => {
+const uploadFiles = async (files = []) => {
   const uploadedFiles = [];
 
   for (const file of files) {

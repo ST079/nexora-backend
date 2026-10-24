@@ -34,7 +34,7 @@ const paymentSchema = new mongoose.Schema({
     required: [true, "Payment amount is required"],
     min: [0, "Payment amount cannot be negative"],
   },
-  createdAt: { type: Date, default: Date.now(), immutable: true },
+  createdAt: { type: Date, default: Date.now, immutable: true },
 });
 
 const paymentModel = mongoose.model("Payment", paymentSchema);

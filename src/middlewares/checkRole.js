@@ -1,6 +1,7 @@
 const checkRole = (...roles) => {
   return (req, res, next) => {
-    const hasRole = req.user.roles.some((role) => {
+    const userRoles = req.user?.roles ?? [];
+    const hasRole = userRoles.some((role) => {
       return roles.includes(role);
     });
 

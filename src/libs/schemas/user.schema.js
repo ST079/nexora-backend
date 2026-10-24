@@ -20,7 +20,16 @@ const userSchema = z.object({
 });
 
 const updateRolesSchema = z.object({
-  roles: z.array(z.enum([ROLE_MERCHANT, ROLE_USER])),
+  roles: z
+    .array(z.enum([ROLE_ADMIN, ROLE_MERCHANT, ROLE_USER]))
+    .min(1, "A user needs at least one role."),
 });
 
-export { userSchema, updateRolesSchema };
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required."),
+  newPassword: z
+    .string()
+    .min(6, "Password must be at least 6 characters long."),
+});
+
+export { userSchema, updateRolesSchema, changePasswordSchema };

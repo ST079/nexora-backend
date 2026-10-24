@@ -36,6 +36,9 @@ const orderSchema = new mongoose.Schema({
         default: 1,
         min: [1, "Quantity must be 1 or greater."],
       },
+      // Snapshot at checkout so later price edits don't rewrite history.
+      name: String,
+      price: Number,
     },
   ],
   shippingAddress: {
@@ -54,11 +57,15 @@ const orderSchema = new mongoose.Schema({
     },
     province: String,
   },
+  deliveryCharge: { type: Number, default: 0 },
+  // true once stock was taken for this order, so cancelling can return it
+  // (orders placed before stock tracking existed stay false).
+  stockReserved: { type: Boolean, default: false },
   totalPrice: {
     type: Number,
     required: [true, "Total price is required"],
   },
-  createdAt: { type: Date, default: Date.now(), immutable: true },
+  createdAt: { type: Date, default: Date.now, immutable: true },
   orderNumber: {
     type: String,
     required: [true, "Order number is required"],

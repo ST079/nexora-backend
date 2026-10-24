@@ -1,38 +1,36 @@
 import express from "express";
 const router = express.Router();
 
-import auth from "../middlewares/auth.js";
 import checkRole from "../middlewares/checkRole.js";
 import orderController from "../controllers/order.controller.js";
-import { ROLE_ADMIN, ROLE_MERCHANT, ROLE_USER } from "../constants/roles.js";
+import { ROLE_ADMIN, ROLE_MERCHANT } from "../constants/roles.js";
 import { orderSchema, orderStatusSchema } from "../libs/schemas/orderSchema.js";
 import { validate } from "../middlewares/validate.js";
 
-router.get("/", auth, checkRole(ROLE_ADMIN), orderController.getAllOrders);
+// `auth` is applied to the whole router in app.js. Per-order access
+// (owner / admin / merchant of an item) is checked in the service.
 
-router.get(
-  "/my-orders",
-  auth,
-  checkRole(ROLE_USER),
-  orderController.getOrdersByUser,
-);
+router.get("/", checkRole(ROLE_ADMIN), orderController.getAllOrders);
+
+router.get("/my-orders", orderController.getOrdersByUser);
 
 router.get(
   "/merchant",
-  auth,
   checkRole(ROLE_MERCHANT),
   orderController.getOrdersByMerchant,
 );
 
+// Both are scoped to the caller's role inside the service.
 router.get("/count", orderController.getTotalCount);
+router.get("/stats", orderController.getStats);
 
-router.get("/:id", auth, checkRole(ROLE_USER), orderController.getOrderById);
+router.get("/:id", orderController.getOrderById);
 
-router.post("/", auth, validate(orderSchema), orderController.createOrder);
+router.post("/", validate(orderSchema), orderController.createOrder);
 
-router.put("/:id/cancel", auth, orderController.cancelOrder);
+router.put("/:id/cancel", orderController.cancelOrder);
 
-router.delete("/:id", auth, checkRole(ROLE_ADMIN), orderController.deleteOrder);
+router.delete("/:id", checkRole(ROLE_ADMIN), orderController.deleteOrder);
 
 router.put(
   "/:id/status",
@@ -41,28 +39,12 @@ router.put(
   orderController.updateOrderStatus,
 );
 
-router.post(
-  "/:id/payment/khalti",
-  checkRole(ROLE_USER),
-  orderController.orderPaymentViaKhalti,
-);
+router.post("/:id/payment/khalti", orderController.orderPaymentViaKhalti);
 
-router.post(
-  "/:id/payment/stripe",
-  checkRole(ROLE_USER),
-  orderController.orderPaymentViaStripe,
-);
+router.post("/:id/payment/stripe", orderController.orderPaymentViaStripe);
 
-router.put(
-  "/:id/confirm-payment",
-  checkRole(ROLE_USER),
-  orderController.confirmOrderPayment,
-);
+router.put("/:id/confirm-payment", orderController.confirmOrderPayment);
 
-router.post(
-  "/:id/payment/cash",
-  checkRole(ROLE_USER),
-  orderController.orderPaymentViaCash,
-);
+router.post("/:id/payment/cash", orderController.orderPaymentViaCash);
 
 export default router;

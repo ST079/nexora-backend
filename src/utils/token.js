@@ -6,10 +6,10 @@ const generateJwt = (payload) => {
 };
 
 const verifyJwt = async (token) => {
-    //converting call back to  promise
+  //converting call back to  promise
   return await new Promise((resolve, reject) => {
     jwt.verify(token, config.jwt_secret, (error, data) => {
-      if (error) throw reject(error);
+      if (error) return reject(error);
       resolve(data);
     });
   });

@@ -6,7 +6,6 @@ const getAllProducts = async (req, res, next) => {
     const data = await productService.getAllProducts(payload);
     res.json(data);
   } catch (error) {
-    // res.status(400).send({ message: error?.message });
     next(error);
   }
 };
@@ -41,6 +40,7 @@ const updateProduct = async (req, res, next) => {
       req.params.id,
       req.body,
       req.files,
+      req.user,
     );
 
     res.status(200).json(updatedProduct);
@@ -51,7 +51,7 @@ const updateProduct = async (req, res, next) => {
 
 const deleteProduct = async (req, res, next) => {
   try {
-    await productService.deleteProduct(req.params.id);
+    await productService.deleteProduct(req.params.id, req.user);
     res.json({ message: "Product Deleted Successfully", id: req.params.id });
   } catch (error) {
     next(error);
@@ -78,7 +78,7 @@ const getCategories = async (req, res, next) => {
 
 const getTotalCount = async (req, res, next) => {
   try {
-    const data = await productService.getTotalCount();
+    const data = await productService.getTotalCount(req.query);
     res.json({ totalCount: data });
   } catch (error) {
     next(error);

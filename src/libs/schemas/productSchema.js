@@ -1,20 +1,20 @@
 import z from "zod";
 
+// Products arrive as multipart form data, so numbers come in as strings.
 const productSchema = z.object({
-  name: z.string({ error: "Product name is required." }).min(3).trim(),
+  name: z.string({ error: "Product name is required." }).trim().min(3),
   brand: z.string().optional(),
   category: z.string().optional(),
-  price: z
-    .string({
-      error: (val) =>
-        val.input === undefined
-          ? "Price is required."
-          : "Price must be a number",
-    })
+  description: z.string().optional(),
+  price: z.coerce
+    .number({ error: "Price must be a number" })
     .min(1)
     .max(999999999),
-  stock: z.string().min("1").optional(),
-  imageUrls: z.array(z.string()).optional(),
+  stock: z.coerce.number().int().min(0).optional(),
 });
 
-export { productSchema };
+const productUpdateSchema = productSchema.partial().extend({
+  existingImages: z.union([z.string(), z.array(z.string())]).optional(),
+});
+
+export { productSchema, productUpdateSchema };

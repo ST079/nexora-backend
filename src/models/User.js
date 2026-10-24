@@ -22,6 +22,8 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: [true, "Password is required!!!"],
+    // Never returned unless a query asks for it with .select("+password").
+    select: false,
     validate: {
       validator: (value) => {
         const passwordRegex = /^.{6,}$/; //at least 6 Characters for now
@@ -54,10 +56,10 @@ const userSchema = new mongoose.Schema({
         const phoneRegex = /^\d{10}$/; // Simple regex for 10 digit phone numbers
         return phoneRegex.test(value);
       },
-      messsage: "Invalid Email Format."
+      message: "Phone number must be 10 digits.",
     },
   },
-  createdAt: { type: Date, default: Date.now(), immutable: true },
+  createdAt: { type: Date, default: Date.now, immutable: true },
   roles: {
     type: [String],
     default: ["USER"],
