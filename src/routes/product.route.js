@@ -36,9 +36,32 @@ router.get("/categories", productControllers.getCategories);
 router.get("/count", productControllers.getTotalCount);
 
 /**
+ * GET /api/v1/products/restock-forecast
+ * Exponential-smoothing demand forecast and reorder plan (merchant: own products).
+ */
+router.get(
+  "/restock-forecast",
+  auth,
+  checkRole(ROLE_MERCHANT, ROLE_ADMIN),
+  productControllers.getRestockForecast,
+);
+
+/**
  * GET /api/v1/products/:id
  */
 router.get("/:id", productControllers.getProductById);
+
+/**
+ * GET /api/v1/products/:id/similar
+ * TF-IDF + cosine similarity over name, brand, category and description.
+ */
+router.get("/:id/similar", productControllers.getSimilarProducts);
+
+/**
+ * GET /api/v1/products/:id/bought-together
+ * Apriori association rules mined from past orders.
+ */
+router.get("/:id/bought-together", productControllers.getBoughtTogether);
 
 /**
  * Post /api/v1/products/

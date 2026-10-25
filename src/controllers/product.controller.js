@@ -79,7 +79,34 @@ const getCategories = async (req, res, next) => {
 const getTotalCount = async (req, res, next) => {
   try {
     const data = await productService.getTotalCount(req.query);
-    res.json({ totalCount: data });
+    res.json(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getSimilarProducts = async (req, res, next) => {
+  try {
+    const data = await productService.getSimilarProducts(req.params.id, req.query);
+    res.json(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getBoughtTogether = async (req, res, next) => {
+  try {
+    const data = await productService.getBoughtTogether(req.params.id, req.query);
+    res.json(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getRestockForecast = async (req, res, next) => {
+  try {
+    const data = await productService.getRestockForecast(req.user, req.query);
+    res.json(data);
   } catch (error) {
     next(error);
   }
@@ -94,4 +121,7 @@ export default {
   getBrands,
   getCategories,
   getTotalCount,
+  getSimilarProducts,
+  getBoughtTogether,
+  getRestockForecast,
 };
