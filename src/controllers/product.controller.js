@@ -76,6 +76,15 @@ const getCategories = async (req, res, next) => {
   }
 };
 
+const getMerchants = async (req, res, next) => {
+  try {
+    const data = await productService.getMerchants();
+    res.json(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getTotalCount = async (req, res, next) => {
   try {
     const data = await productService.getTotalCount(req.query);
@@ -120,6 +129,7 @@ export default {
   deleteProduct,
   getBrands,
   getCategories,
+  getMerchants,
   getTotalCount,
   getSimilarProducts,
   getBoughtTogether,

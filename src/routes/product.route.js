@@ -31,6 +31,17 @@ router.get("/brands", productControllers.getBrands);
 router.get("/categories", productControllers.getCategories);
 
 /**
+ * GET /api/v1/products/merchants
+ * Who has listed products and how many, for the admin's merchant filter.
+ */
+router.get(
+  "/merchants",
+  auth,
+  checkRole(ROLE_ADMIN),
+  productControllers.getMerchants,
+);
+
+/**
  * GET /api/v1/products/count
  */
 router.get("/count", productControllers.getTotalCount);

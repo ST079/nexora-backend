@@ -214,6 +214,26 @@ const getCategories = async () => {
   return await productModel.distinct("category");
 };
 
+// Everyone who has listed a product, with how many, for the admin's merchant
+// filter. Admins can list products too, and an owner whose account was
+// deleted still shows up, with no name.
+const getMerchants = async () => {
+  return await productModel.aggregate([
+    { $group: { _id: "$createdBy", products: { $sum: 1 } } },
+    { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "user" } },
+    { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        products: 1,
+        name: "$user.name",
+        email: "$user.email",
+        roles: "$user.roles",
+      },
+    },
+    { $sort: { name: 1, _id: 1 } },
+  ]);
+};
+
 // Accepts the same filters as the list so pagination totals line up. When
 // the list fell back to fuzzy matches, says so and offers a corrected query.
 const getTotalCount = async (payload = {}) => {
@@ -380,6 +400,7 @@ export default {
   deleteProduct,
   getBrands,
   getCategories,
+  getMerchants,
   getTotalCount,
   getSimilarProducts,
   getBoughtTogether,

@@ -67,6 +67,9 @@ const userSchema = new mongoose.Schema({
   },
   profileImageUrl: String,
   isActive: { type: Boolean, default: true },
+  // The shared demo shopper from scripts/seed-demo-user.js. Its password is
+  // public, so its password and profile can't be changed (see user.service).
+  isDemo: { type: Boolean, default: false },
 });
 
 const userModel = mongoose.model("User", userSchema);

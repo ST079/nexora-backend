@@ -7,6 +7,13 @@ import authService from "./auth.service.js";
 
 const ADDRESS_FIELDS = ["country", "province", "city", "street"];
 
+// Everyone signs in to the demo account with the same public password, so
+// one visitor mustn't be able to rename it or lock the next one out.
+const demoLocked = () => ({
+  status: 403,
+  message: "The demo account can't be changed. Create your own account to try this.",
+});
+
 // Used by admins; register() ignores roles, so they're applied afterwards.
 const createUser = async (payload) => {
   const newUser = await authService.register(payload);
@@ -53,7 +60,7 @@ const getUserById = async (id) => {
 };
 
 const updateUser = async (id, payload, currentUser) => {
-  await getUserById(id);
+  const { data: target } = await getUserById(id);
 
   const isAdmin = currentUser.roles?.includes(ROLE_ADMIN);
 
@@ -64,6 +71,9 @@ const updateUser = async (id, payload, currentUser) => {
       message: "Forbidden: You don't have permission to update this user.",
     };
   }
+
+  // Admins can still edit or deactivate it.
+  if (target.isDemo && !isAdmin) throw demoLocked();
 
   const update = {};
   if (payload?.name) update.name = payload.name;
@@ -93,7 +103,8 @@ const updateUser = async (id, payload, currentUser) => {
 const updateUserProfileImage = async (id, file) => {
   if (!file) throw { status: 400, message: "Please choose an image." };
 
-  await getUserById(id);
+  const { data: user } = await getUserById(id);
+  if (user.isDemo) throw demoLocked();
 
   const uploadedFile = await uploadFiles([file]);
   const imageUrl = uploadedFile[0].secure_url;
@@ -107,6 +118,7 @@ const updateUserProfileImage = async (id, file) => {
 const changePassword = async (id, { currentPassword, newPassword }) => {
   const user = await userModel.findById(id).select("+password");
   if (!user) throw { status: 404, message: "User Not Found! " };
+  if (user.isDemo) throw demoLocked();
 
   const isValid = await comparePassword(currentPassword, user.password);
   if (!isValid)
@@ -136,7 +148,11 @@ const updateUserRoles = async (id, roles, currentUser) => {
   if (isSameId(currentUser?._id, id) && !roles.includes(ROLE_ADMIN))
     throw { status: 400, message: "You can't remove your own admin role." };
 
-  await getUserById(id);
+  const { data: target } = await getUserById(id);
+  // Anyone can sign in to the demo account, so it never gets staff access.
+  if (target.isDemo && roles.some((role) => role !== ROLE_USER))
+    throw { status: 400, message: "The demo account can only be a customer." };
+
   return await userModel.findByIdAndUpdate(
     id,
     { roles: [...new Set(roles)] },

@@ -16,6 +16,7 @@ const toPublicUser = (user) => ({
   phone: user.phone,
   isActive: user.isActive,
   profileImageUrl: user.profileImageUrl,
+  isDemo: Boolean(user.isDemo),
 });
 
 const login = async (payload) => {
@@ -66,7 +67,8 @@ const forgotPassword = async (email) => {
   const user = await userModel.findOne({ email: email.toLowerCase() });
 
   //never send message saying if user is found.
-  if (!user) return RESET_LINK_SENT;
+  // The demo account's password is public and fixed, so it never gets a link.
+  if (!user || user.isDemo) return RESET_LINK_SENT;
 
   const token = crypto.randomUUID();
 
