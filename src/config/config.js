@@ -7,9 +7,16 @@ const config = {
   // APP_URL is the storefront (Next.js) URL — used for Khalti + reset links.
   app_url: process.env.APP_URL || "http://localhost:3000",
   version: process.env.VERSION || "/api/v1",
+  // Browsers send Origin with no trailing slash, and cors matches exactly, so
+  // strip slashes and stray quotes from values pasted into a dashboard.
   cors_origins: (process.env.CORS_ORIGINS || "")
     .split(",")
-    .map((origin) => origin.trim())
+    .map((origin) =>
+      origin
+        .trim()
+        .replace(/^["']|["']$/g, "")
+        .replace(/\/+$/, ""),
+    )
     .filter(Boolean),
   delivery_charge: parseInt(process.env.DELIVERY_CHARGE) || 200,
   databaseURL: process.env.DBURL,
