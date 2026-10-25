@@ -29,6 +29,7 @@ This file gives what report section **3.3 (Algorithm details)** and section **4.
 | `src/routes/product.route.js` | The endpoints listed below |
 | `tests/*.test.js` | 56 unit tests, one file per algorithm |
 | `scripts/seed-demo-orders.js` | Adds a month of demo orders so the algorithms have history to learn from |
+| `scripts/seed-demo-products.js` | Adds about 80 demo products across the storefront categories, so there is a catalogue to compare |
 
 The algorithm files never touch the database. They take plain arrays and return plain objects, which is what makes them easy to unit test.
 
@@ -448,6 +449,32 @@ These ran against a local demo database filled by the seed script. They are not 
 | `/restock-forecast` as a customer | 403 |
 
 ---
+
+## Demo catalogue
+
+TF-IDF needs several products per category to rank, and a ten-product shop leaves most category chips empty. The product seed script copies 82 products from [DummyJSON](https://dummyjson.com/products), a free demo catalogue. Run it from `nexora-backend/`:
+
+```bash
+node scripts/seed-demo-products.js --merchant=<email> --yes   # adds them, owned by that merchant
+node scripts/seed-demo-products.js --clean --yes              # removes them and their photos
+```
+
+| Storefront category | Products | Taken from DummyJSON |
+|---|---|---|
+| Smartphones | 10 | smartphones |
+| Tech & Electronics | 12 | laptops, tablets, mobile-accessories |
+| Clothing | 12 | mens-shirts, tops, womens-dresses, mens-shoes, womens-shoes |
+| Groceries | 12 | groceries |
+| Home & Living | 12 | furniture, home-decoration, kitchen-accessories |
+| Beauty | 12 | beauty, skin-care, fragrances |
+| Sports | 12 | sports-accessories |
+| Books | 0 | DummyJSON has no books |
+
+- **Photos.** Up to three per product are copied into the `nexora-demo-products` folder in Cloudinary, because `next/image` only loads from Cloudinary. That folder in `imageUrls` is how `--clean` recognises a demo product. `--clean` also deletes the photos, and they are shared by every database that uses this Cloudinary account.
+- **Prices.** DummyJSON's prices are in US dollars. They are converted at Rs 140 per dollar and rounded to Rs 10 (Rs 100 above Rs 10,000), so they are demo prices, not market prices.
+- **Stock.** Stock is DummyJSON's own. A few products start low or at zero, which gives the restock planner something to flag.
+- **Re-runs.** A product whose name is already in the catalogue is skipped, so running it again adds only what is missing. Existing products are never changed.
+- **Order.** Seed products before orders. Clean orders before products.
 
 ## Demo order history
 
