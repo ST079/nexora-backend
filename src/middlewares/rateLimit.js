@@ -4,7 +4,11 @@
 // Redis/Upstash when that matters.
 const SWEEP_AT = 5000;
 
-const rateLimit = ({ name, windowMs, max, message }) => {
+const clientIp = (req) => req.ip ?? req.socket?.remoteAddress ?? "unknown";
+
+// `key` picks the bucket; it defaults to the client's IP. Limiters that run
+// after `auth` can key by user instead, so one office network isn't shared.
+const rateLimit = ({ name, windowMs, max, message, key: keyOf = clientIp }) => {
   const hits = new Map();
 
   return (req, res, next) => {
@@ -13,7 +17,7 @@ const rateLimit = ({ name, windowMs, max, message }) => {
     if (hits.size > SWEEP_AT)
       for (const [key, entry] of hits) if (entry.resetAt <= now) hits.delete(key);
 
-    const key = req.ip ?? req.socket?.remoteAddress ?? "unknown";
+    const key = keyOf(req) ?? clientIp(req);
     let entry = hits.get(key);
     if (!entry || entry.resetAt <= now) {
       entry = { count: 0, resetAt: now + windowMs };
@@ -62,6 +66,28 @@ export const resetPasswordLimiter = rateLimit({
   windowMs: 15 * MINUTE,
   max: 10,
   message: "Too many attempts. Please request a new reset link in a few minutes.",
+});
+
+// Both of these run after `auth`, so each seller gets their own allowance.
+const byUser = (req) => (req.user?._id ? `user:${req.user._id}` : undefined);
+
+// Every call is a paid model request.
+export const aiDescriptionLimiter = rateLimit({
+  name: "ai-description",
+  windowMs: 15 * MINUTE,
+  max: 20,
+  key: byUser,
+  message: "You've generated a lot of descriptions. Please wait a few minutes and try again.",
+});
+
+// Generous, since a listing can have any number of photos, but it stops a
+// runaway script from filling the Cloudinary account.
+export const imageUploadLimiter = rateLimit({
+  name: "image-upload",
+  windowMs: 15 * MINUTE,
+  max: 200,
+  key: byUser,
+  message: "Too many uploads in a short time. Please wait a few minutes and try again.",
 });
 
 export default rateLimit;

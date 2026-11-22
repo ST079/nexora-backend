@@ -5,10 +5,15 @@ import checkRole from "../middlewares/checkRole.js";
 import { ROLE_ADMIN, ROLE_MERCHANT } from "../constants/roles.js";
 import { validate } from "../middlewares/validate.js";
 import {
+  descriptionRequestSchema,
   productSchema,
   productUpdateSchema,
 } from "../libs/schemas/productSchema.js";
 import upload from "../middlewares/upload.js";
+import {
+  aiDescriptionLimiter,
+  imageUploadLimiter,
+} from "../middlewares/rateLimit.js";
 
 const router = express.Router();
 
@@ -47,6 +52,13 @@ router.get(
 router.get("/count", productControllers.getTotalCount);
 
 /**
+ * GET /api/v1/products/price-range
+ * Cheapest and dearest price under the current filters (min/max ignored),
+ * for the price slider's ends.
+ */
+router.get("/price-range", productControllers.getPriceRange);
+
+/**
  * GET /api/v1/products/restock-forecast
  * Exponential-smoothing demand forecast and reorder plan (merchant: own products).
  */
@@ -75,7 +87,35 @@ router.get("/:id/similar", productControllers.getSimilarProducts);
 router.get("/:id/bought-together", productControllers.getBoughtTogether);
 
 /**
- * Post /api/v1/products/
+ * POST /api/v1/products/images
+ * One photo per request (field "image") -> { url, width, height, bytes }.
+ * The product is then saved with the URLs in `imageUrls`.
+ */
+router.post(
+  "/images",
+  auth,
+  checkRole(ROLE_MERCHANT, ROLE_ADMIN),
+  imageUploadLimiter,
+  upload.single("image"),
+  productControllers.uploadProductImage,
+);
+
+/**
+ * POST /api/v1/products/generate-description
+ * Drafts a Markdown description with Gemini; nothing is saved.
+ */
+router.post(
+  "/generate-description",
+  auth,
+  checkRole(ROLE_MERCHANT, ROLE_ADMIN),
+  aiDescriptionLimiter,
+  validate(descriptionRequestSchema),
+  productControllers.generateDescription,
+);
+
+/**
+ * POST /api/v1/products/
+ * JSON with `imageUrls`, or multipart with "images" files (older clients).
  */
 router.post(
   "/",

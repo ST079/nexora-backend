@@ -49,6 +49,24 @@ const updateProduct = async (req, res, next) => {
   }
 };
 
+const uploadProductImage = async (req, res, next) => {
+  try {
+    const image = await productService.uploadProductImage(req.file);
+    res.status(201).json(image);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const generateDescription = async (req, res, next) => {
+  try {
+    const data = await productService.generateDescription(req.body);
+    res.json(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const deleteProduct = async (req, res, next) => {
   try {
     await productService.deleteProduct(req.params.id, req.user);
@@ -79,6 +97,15 @@ const getCategories = async (req, res, next) => {
 const getMerchants = async (req, res, next) => {
   try {
     const data = await productService.getMerchants();
+    res.json(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getPriceRange = async (req, res, next) => {
+  try {
+    const data = await productService.getPriceRange(req.query);
     res.json(data);
   } catch (error) {
     next(error);
@@ -127,9 +154,12 @@ export default {
   createProduct,
   updateProduct,
   deleteProduct,
+  uploadProductImage,
+  generateDescription,
   getBrands,
   getCategories,
   getMerchants,
+  getPriceRange,
   getTotalCount,
   getSimilarProducts,
   getBoughtTogether,

@@ -4,6 +4,7 @@ const CLIENT_ERRORS = ["ValidationError", "CastError", "SyntaxError", "MulterErr
 const MULTER_MESSAGES = {
   LIMIT_FILE_SIZE: "Each image must be 5 MB or smaller.",
   LIMIT_FILE_COUNT: "Too many files in one upload.",
+  LIMIT_UNEXPECTED_FILE: "Unexpected file field in the upload.",
 };
 
 const errorMiddleware = (err, req, res, next) => {

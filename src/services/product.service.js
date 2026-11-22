@@ -10,14 +10,17 @@ import {
 } from "../algorithms/forecast.js";
 import { fuzzySearch, suggestCorrection } from "../algorithms/levenshtein.js";
 import { rankSimilar, tokenize } from "../algorithms/tfidf.js";
+import config from "../config/config.js";
 import { ORDER_STATUS_CANCELLED } from "../constants/orderStatuses.js";
-import { PRODUCT_DESCRIPTION_PROMPT } from "../constants/prompt.js";
+import { buildDescriptionPrompt } from "../constants/prompt.js";
 import { ROLE_ADMIN } from "../constants/roles.js";
 import orderModel from "../models/Order.js";
 import productModel from "../models/Product.js";
-import promptAi from "../utils/ai.js";
+import promptAi, { isAiConfigured } from "../utils/ai.js";
 import uploadFiles from "../utils/fileUploader.js";
-import { escapeRegex, isSameId, parseSort, toInt } from "../utils/query.js";
+import { findForeignImage } from "../utils/images.js";
+import { buildProductFilters } from "../utils/productFilters.js";
+import { isSameId, parseSort, toInt } from "../utils/query.js";
 
 const EDITABLE_FIELDS = [
   "name",
@@ -41,38 +44,8 @@ const pick = (source = {}, keys) =>
     keys.filter((key) => source[key] !== undefined).map((key) => [key, source[key]]),
   );
 
-const buildProductFilters = (payload = {}) => {
-  const { category, brands, name, min, max, createdBy, stock } = payload;
-  const filters = {};
-
-  if (category)
-    filters.category = { $regex: escapeRegex(category), $options: "i" };
-  if (brands) {
-    filters.$or = brands
-      .split(",")
-      .map((brand) => brand.trim())
-      .filter(Boolean)
-      .map((brand) => ({
-        brand: {
-          $regex: `^${escapeRegex(brand)}$`,
-          $options: "i",
-        },
-      }));
-    if (!filters.$or.length) delete filters.$or;
-  }
-  if (name) filters.name = { $regex: escapeRegex(name), $options: "i" };
-  if (min) filters.price = { $gte: Number(min) };
-  if (max) filters.price = { ...filters.price, $lte: Number(max) };
-  if (createdBy) filters.createdBy = createdBy;
-  // Used by the dashboard: "out" = sold out, "low" = 1–5 left.
-  if (stock === "out") filters.stock = { $lte: 0 };
-  if (stock === "low") filters.stock = { $gt: 0, $lte: 5 };
-
-  return filters;
-};
-
-// Typo-tolerant fallback for a name search that matched nothing: keep every
-// other filter, then rank what's left by Levenshtein distance to the query.
+// Typo-tolerant fallback for a search that matched nothing: keep every other
+// filter, then rank what's left by Levenshtein distance to the query.
 const fuzzyNameSearch = async (payload) => {
   const { name, ...rest } = payload;
   const candidates = await productModel
@@ -80,7 +53,8 @@ const fuzzyNameSearch = async (payload) => {
     .sort(parseSort(payload.sort))
     .limit(PRODUCT_SCAN_LIMIT);
 
-  const textOf = (product) => `${product.name} ${product.brand ?? ""}`;
+  const textOf = (product) =>
+    `${product.name} ${product.brand ?? ""} ${product.category ?? ""}`;
   const ranked = fuzzySearch(name, candidates, textOf);
   // Newest-first is every list's default, so it gives way to closeness; a
   // sort the shopper picked (price) keeps its order.
@@ -140,32 +114,92 @@ const assertCanManage = (product, user) => {
     };
 };
 
-const generateDescription = async (payload) => {
-  const promptMessage = PRODUCT_DESCRIPTION_PROMPT.replace("%s", payload.name)
-    .replace("%s", payload.category)
-    .replace("%s", payload.brand);
-
-  try {
-    return await promptAi(promptMessage);
-  } catch (error) {
-    // AI is a nice-to-have — never block a listing because Gemini is down.
-    console.error("Description generation failed:", error.message);
-    return "";
-  }
+// Photos must already be in our Cloudinary account; `known` (the product's
+// current photos) stay allowed even if they predate that rule.
+const assertOwnImages = (urls, known = []) => {
+  const foreign = findForeignImage(urls, {
+    cloudName: config.cloudinary.cloud_name,
+    known,
+  });
+  if (foreign)
+    throw {
+      status: 400,
+      message: "Product photos must be uploaded through Nexora.",
+    };
 };
 
-const createProduct = async (payload, files, userId) => {
-  const uploadedFiles = await uploadFiles(files);
-  const imageUrls = uploadedFiles.map((item) => item.secure_url);
+const unique = (urls) => [...new Set(urls)];
 
+// POST /products/images: one photo per request, so a listing can have any
+// number of photos without a request hitting the host's body-size limit.
+const uploadProductImage = async (file) => {
+  if (!file)
+    throw { status: 400, message: "Choose an image to upload." };
+
+  const [uploaded] = await uploadFiles([file]);
+  return {
+    url: uploaded.secure_url,
+    width: uploaded.width,
+    height: uploaded.height,
+    bytes: uploaded.bytes,
+  };
+};
+
+// Drafts a description for the seller to review; nothing is saved here.
+const generateDescription = async (payload) => {
+  if (!isAiConfigured())
+    throw {
+      status: 503,
+      message: "AI descriptions aren't set up on this server yet.",
+    };
+
+  let description;
+  try {
+    description = await promptAi(buildDescriptionPrompt(payload));
+  } catch (error) {
+    console.error("Description generation failed:", error.message);
+    // Google answers a bad or revoked key with 400/401/403: retrying won't
+    // help, so say it's a setup problem rather than a hiccup.
+    if ([400, 401, 403].includes(error?.status))
+      throw {
+        status: 503,
+        message: "AI descriptions aren't set up correctly on this server.",
+      };
+    if (error?.status === 429)
+      throw {
+        status: 503,
+        message: "The AI writer is busy right now. Please try again in a minute.",
+      };
+    throw {
+      status: 502,
+      message: "The AI writer is unavailable right now. Please try again in a moment.",
+    };
+  }
+
+  if (!description)
+    throw {
+      status: 502,
+      message: "The AI writer came back empty. Please try again.",
+    };
+
+  return { description };
+};
+
+// imageUrls (already uploaded, in order) come first; files sent with the
+// request the older multipart way are appended after them.
+const createProduct = async (payload, files, userId) => {
   const data = pick(payload, EDITABLE_FIELDS);
-  const description = data.description?.trim()
-    ? data.description
-    : await generateDescription(data);
+  const linked = payload.imageUrls ?? [];
+  assertOwnImages(linked);
+
+  const uploadedFiles = await uploadFiles(files);
+  const imageUrls = unique([
+    ...linked,
+    ...uploadedFiles.map((item) => item.secure_url),
+  ]);
 
   return await productModel.create({
     ...data,
-    description,
     imageUrls,
     createdBy: userId,
   });
@@ -177,23 +211,22 @@ const updateProduct = async (id, payload, files, user) => {
 
   const updateData = pick(payload, EDITABLE_FIELDS);
 
-  // existingImages = the URLs the editor kept; new uploads are appended.
-  const hasImageChanges =
-    payload.existingImages !== undefined || (files && files.length > 0);
+  // The photos to keep, in order: imageUrls (JSON) or existingImages
+  // (multipart). New uploads in the request are appended.
+  const listed = payload.imageUrls ?? payload.existingImages;
+  const hasImageChanges = listed !== undefined || (files && files.length > 0);
 
   if (hasImageChanges) {
-    const kept =
-      payload.existingImages === undefined
-        ? product.imageUrls
-        : [].concat(payload.existingImages).filter(Boolean);
+    const kept = listed ?? product.imageUrls;
+    assertOwnImages(kept, product.imageUrls);
+
     const uploadedFiles = await uploadFiles(files);
-    updateData.imageUrls = [
+    updateData.imageUrls = unique([
       ...kept,
       ...uploadedFiles.map((item) => item.secure_url),
-    ];
+    ]);
   }
 
-  //{new:true}-> gives the latest updated payload
   return await productModel.findByIdAndUpdate(id, updateData, {
     returnDocument: "after",
     runValidators: true,
@@ -232,6 +265,24 @@ const getMerchants = async () => {
     },
     { $sort: { name: 1, _id: 1 } },
   ]);
+};
+
+// Lowest and highest price among the products the other filters match, for
+// the price slider's ends. With nothing matching (a typo the list answers
+// with fuzzy matches), falls back to the whole catalogue.
+const getPriceRange = async (payload = {}) => {
+  const range = async (filters) => {
+    const [cheapest, priciest] = await Promise.all([
+      productModel.findOne(filters).sort({ price: 1 }).select("price").lean(),
+      productModel.findOne(filters).sort({ price: -1 }).select("price").lean(),
+    ]);
+    return cheapest ? { min: cheapest.price, max: priciest.price } : null;
+  };
+
+  return (
+    (await range(buildProductFilters({ ...payload, min: undefined, max: undefined }))) ??
+    (await range({})) ?? { min: 0, max: 0 }
+  );
 };
 
 // Accepts the same filters as the list so pagination totals line up. When
@@ -398,9 +449,12 @@ export default {
   createProduct,
   updateProduct,
   deleteProduct,
+  uploadProductImage,
+  generateDescription,
   getBrands,
   getCategories,
   getMerchants,
+  getPriceRange,
   getTotalCount,
   getSimilarProducts,
   getBoughtTogether,

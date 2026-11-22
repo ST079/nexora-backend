@@ -6,9 +6,15 @@ const productSchema = new mongoose.Schema({
     required: [true, "Product name is required."],
     minlength: [3, "Name must be at least 3 characters."],
   },
-  description: String,
-  brand: String,
-  category: String,
+  // Required for new listings. Update validators only check the fields an
+  // update sets, so older products without one can still be edited.
+  description: {
+    type: String,
+    trim: true,
+    required: [true, "Product description is required."],
+  },
+  brand: { type: String, trim: true },
+  category: { type: String, trim: true },
   price: {
     type: Number,
     required: [true, "Product price is required."],
